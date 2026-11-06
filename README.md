@@ -30,6 +30,10 @@ Because of its prototype nature, this implementation comes with several time-sav
 - The input exe exclusively accepts CBPa11 because it was easier for me, even though this program completely undermines game balance.
   - As a consequence, it relies on CBPa11 game files and outputs an exe with the CBP icon, strings, etc.
 
+## Technical info
+
+Instead of being cool and hip and using hooks to write stuff in e.g., C++, this recycles previous work done on e.g., CBP to do patching in raw bytes (based on assembly), assembling valid instructions dynamically on the fly based on existing game code, including rewriting jumps/calls and adding new relocation entries. It was less work.
+
 ## Usage
 
 Reassign existing nation powers using the controls in the top-left quadrant. Reverse-assignments invert who the nation power is given to, so everyone _except_ the specified nation get the chosen power. Add new nation powers using the controls in the bottom-left quadrant.
