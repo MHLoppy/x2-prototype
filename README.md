@@ -27,7 +27,7 @@ Because of its prototype nature, this implementation comes with several time-sav
 - UI is half-baked; game-internal names are used for units/buildings/techs).
 - Much of the code is whatever the opposite of robust is and the current design will not scale well if extended significantly.
 - Probably has undiscovered bugs, though I did start several dozen patched games while testing.
-- The input exe exclusively accepts CBPa11 because it was easier for me, even though this program completely undermines game balance.
+- The input exe exclusively accepts CBPa11 because it was easier for me, even though this tool completely undermines game balance.
   - As a consequence, it relies on CBPa11 game files and outputs an exe with the CBP icon, strings, etc.
 
 ## Technical info
