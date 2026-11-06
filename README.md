@@ -30,7 +30,7 @@ Because of its prototype nature, this implementation comes with several time-sav
 - The input exe exclusively accepts CBPa11 because it was easier for me, even though this program completely undermines game balance.
   - As a consequence, it relies on CBPa11 game files and outputs an exe with the CBP icon, strings, etc.
 
-## usage
+## Usage
 
 Reassign existing nation powers using the controls in the top-left quadrant. Reverse-assignments invert who the nation power is given to, so everyone _except_ the specified nation get the chosen power. Add new nation powers using the controls in the bottom-left quadrant.
 
