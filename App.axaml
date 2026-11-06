@@ -1,0 +1,16 @@
+﻿<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="x2_prototype.App"
+             RequestedThemeVariant="Default">
+             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+
+    <Application.Styles>
+        <FluentTheme />
+    </Application.Styles>
+
+    <!-- Unlike WPF, Avalonia apparently can't support a comma-separated list :'( -->
+    <Application.Resources>
+        <!--<FontFamily x:Key="DefaultFont">Segoe UI, Liberation Sans, Arial, sans-serif</FontFamily>-->
+        <FontFamily x:Key="DefaultFont">sans-serif</FontFamily>
+    </Application.Resources>
+</Application>

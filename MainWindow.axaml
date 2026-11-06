@@ -1,0 +1,938 @@
+﻿<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="using:x2_prototype"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="1020" d:DesignHeight="860"
+        x:Class="x2_prototype.MainWindow"
+        x:DataType="local:MainWindow"
+        Title="X2 Mod Tools Prototype"
+        Width="1020"
+        Height="860"
+        MinWidth="1020"
+        MinHeight="860"
+        Background="WhiteSmoke"
+        TextElement.FontFamily="{StaticResource DefaultFont}">
+
+    <!-- definitions for the data templates for binding etc -->
+    <Window.DataTemplates>
+        <DataTemplate DataType="local:CbpItem" x:DataType="local:CbpItem">
+            <Border Padding="10,8" Margin="0,0,0,0" BorderBrush="Gray" BorderThickness="1" Background="WhiteSmoke">
+                <Grid ColumnDefinitions="5, *">
+                    <Rectangle Grid.Column="0" Grid.RowSpan="2" Margin="-10,-8,10,-8">
+                        <Rectangle.Fill>
+                            <SolidColorBrush Color="LightSkyBlue" />
+                        </Rectangle.Fill>
+                    </Rectangle>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12">
+                        <TextBlock Text="{Binding Version}" FontWeight="Bold" />
+                        <TextBlock Text="The exe includes changes from this game version as its baseline."/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </DataTemplate>
+        <DataTemplate DataType="local:ReassignmentItem" x:DataType="local:ReassignmentItem">
+            <Border Padding="10,8" Margin="0,0,0,0" BorderBrush="Gray" BorderThickness="1" Background="White">
+                <Grid ColumnDefinitions="5, *,Auto" RowDefinitions="Auto, Auto">
+                    <Rectangle Grid.Column="0" Grid.RowSpan="2" Margin="-10,-8,10,-8">
+                        <Rectangle.Fill>
+                            <SolidColorBrush Color="Gold" />
+                        </Rectangle.Fill>
+                    </Rectangle>
+                    <TextBlock Grid.Column="1" Grid.Row="0" Text="{Binding AssignmentPower}" FontWeight="Bold" />
+                    <StackPanel Grid.Column="1" Grid.Row="1" Orientation="Horizontal" Spacing="5">
+                        <TextBlock Text="{Binding AssignmentType}" />
+                        <TextBlock Text="assignment to:"/>
+                        <TextBlock Text="{Binding AssignmentNation, Converter={StaticResource TrimSuffix}}" />
+                    </StackPanel>
+                    <Button Grid.Column="1" Grid.RowSpan="2" Content="✖" Background="DarkSalmon" Click="RemoveEntry_Click" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                </Grid>
+            </Border>
+        </DataTemplate>
+        <DataTemplate DataType="local:AsmBlockItem" x:DataType="local:AsmBlockItem">
+            <Border Padding="10,8" Margin="0,0,0,0" BorderBrush="Gray" BorderThickness="1" Background="White">
+                <Grid ColumnDefinitions="5, *, Auto" RowDefinitions="Auto, Auto">
+                    <Rectangle Grid.Column="0" Grid.RowSpan="2" Margin="-10,-8,10,-8">
+                        <Rectangle.Fill>
+                            <SolidColorBrush Color="YellowGreen" />
+                        </Rectangle.Fill>
+                    </Rectangle>
+                    <TextBlock Grid.Column="1" Grid.Row="0" Text="{Binding AsmBlockType}" FontWeight="Bold" />
+                        <StackPanel Grid.Column="1" Grid.Row="1" Orientation="Horizontal" Spacing="20">
+                            <TextBlock Text="{Binding AsmNation, Converter={StaticResource TrimSuffix}, StringFormat='Assigned to: {0}'}" />
+                            <TextBlock Text="{Binding AsmUnit, Converter={StaticResource TrimSuffix}, StringFormat='X: {0}'}" IsVisible="{Binding UsesX}"/>
+                            <TextBlock Text="{Binding AsmValue, Converter={StaticResource TrimSuffix}, StringFormat='Y: {0}%'}" IsVisible="{Binding UsesY}" />
+                            <TextBlock Text="{Binding AsmTech, Converter={StaticResource TrimSuffix}, StringFormat='Z1: {0}'}" IsVisible="{Binding UsesZ1}" />
+                            <TextBlock Text="{Binding AsmBuilding, Converter={StaticResource TrimSuffix}, StringFormat='Z2: {0}'}" IsVisible="{Binding UsesZ2}" />
+                        </StackPanel>
+                    <Button Grid.Column="2" Grid.RowSpan="2" Content="✖" Background="DarkSalmon" Click="RemoveEntry_Click" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                </Grid>
+            </Border>
+        </DataTemplate>
+    </Window.DataTemplates>
+
+    <Window.Resources>
+        <local:TrimSuffixConverter x:Key="TrimSuffix"/>
+    </Window.Resources>
+
+    <Window.Styles>
+      <Style Selector="Button">
+      <!-- for some reason the override is a pita https://docs.avaloniaui.net/troubleshooting/ui-development/styles -->
+        <Style Selector="^:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+          <Setter Property="Background" Value="LightCyan" />
+          <Setter Property="BorderBrush" Value="LightSlateGray" />
+          <Setter Property="BorderThickness" Value="1" />
+        </Style>
+      </Style>
+    </Window.Styles>
+
+    <!-- The actual UI itself -->
+    <Grid ColumnDefinitions="420, *">
+
+        <!-- left side: controls for adding new stuff -->
+        <StackPanel>
+            <TextBlock Text="Add Changes" FontSize="24" FontWeight="Bold" HorizontalAlignment="Center" Margin="0,10,0,0"/>
+
+            <!-- wrapped in border since stackpanel doesn't support padding -->
+            <Border Padding="15" Grid.Column="0">
+                <StackPanel Spacing="0">
+                    <TextBlock Text="Reassign existing nation power" FontSize="18" FontWeight="Bold" />
+
+                    <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                        <TextBlock Text="Assignment type" />
+                        <TextBlock Text="ⓘ" Padding="4,0" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center" Background="WhiteSmoke" 
+                            ToolTip.Tip="Normal assignment gives the selected power to the selected nation. Reverse-assignment gives the selected power to all nations other than the selected nation. Reverse-assigning a power to No Nation gives the selected power to all nations." ToolTip.Placement="Right" />
+                    </StackPanel>
+                    <ComboBox x:Name="AssignmentTypeCombo" SelectedIndex="0" Background="White" Width="100">
+                        <ComboBoxItem Content="Normal" />
+                        <ComboBoxItem Content="Reverse" />
+                    </ComboBox>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                        <TextBlock Text="Nation" />
+                        <TextBlock Text="ⓘ" Padding="4,0" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center" Background="WhiteSmoke" 
+                            ToolTip.Tip="Nations are listed in internal game order." ToolTip.Placement="Right" />
+                    </StackPanel>
+                    <ComboBox x:Name="AssignmentNationCombo" SelectedIndex="0" Background="White" Width="160">
+                        <ComboBoxItem Content="AZTECS = 0x00" />
+                        <ComboBoxItem Content="MAYA = 0x01" />
+                        <ComboBoxItem Content="INCA = 0x02" />
+                        <ComboBoxItem Content="BANTU = 0x03" />
+                        <ComboBoxItem Content="NUBIANS = 0x04" />
+                        <ComboBoxItem Content="GREEKS = 0x05" />
+                        <ComboBoxItem Content="ROMANS = 0x06" />
+                        <ComboBoxItem Content="EGYPTIANS = 0x07" />
+                        <ComboBoxItem Content="TURKS = 0x08" />
+                        <ComboBoxItem Content="SPANISH = 0x09" />
+                        <ComboBoxItem Content="FRENCH = 0x0A" />
+                        <ComboBoxItem Content="BRITISH = 0x0B" />
+                        <ComboBoxItem Content="GERMANS = 0x0C" />
+                        <ComboBoxItem Content="RUSSIANS = 0x0D" />
+                        <ComboBoxItem Content="CHINESE = 0x0E" />
+                        <ComboBoxItem Content="JAPANESE = 0x0F" />
+                        <ComboBoxItem Content="KOREANS = 0x10" />
+                        <ComboBoxItem Content="MONGOLS = 0x11" />
+                        <ComboBoxItem Content="IROQUOIS = 0x12" />
+                        <ComboBoxItem Content="LAKOTA = 0x13" />
+                        <ComboBoxItem Content="AMERICANS = 0x14" />
+                        <ComboBoxItem Content="INDIANS = 0x15" />
+                        <ComboBoxItem Content="DUTCH = 0x16" />
+                        <ComboBoxItem Content="PERSIANS = 0x17" />
+                        <ComboBoxItem Content="NO_NATION = 0x69" />
+                    </ComboBox>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                        <TextBlock Text="Nation power type" />
+                        <TextBlock Text="ⓘ" Padding="4,0" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center" Background="WhiteSmoke" 
+                            ToolTip.Tip="Nation sub-powers that are part of a nation power group (e.g., those with A and B parts) should be assigned to the same nation to replicate in-game behaviour. Splitting these assignments across different nations can lead to interesting or buggy-feeling results depending on the nation power." ToolTip.Placement="Right" />
+                    </StackPanel>
+                    <ComboBox x:Name="NationPowerCombo" SelectedIndex="0" Background="White" Width="240">
+                        <ComboBoxItem Content="Bantu city cost" />
+                        <ComboBoxItem Content="Bantu city limit (A)" />
+                        <ComboBoxItem Content="Bantu city limit (B)" />
+                        <ComboBoxItem Content="Bantu pop cap / final pop cap" />
+                        <ComboBoxItem Content="Bantu unit upgrades" />
+                        <ComboBoxItem Content="Bantu units move" />
+                        <ComboBoxItem Content="Chinese citizen creation / instant" />
+                        <ComboBoxItem Content="Chinese herbal lore" />
+                        <ComboBoxItem Content="Chinese knowledge upgrades" />
+                        <ComboBoxItem Content="Chinese large city / cities (A)" />
+                        <ComboBoxItem Content="Chinese large city / cities (B)" />
+                        <ComboBoxItem Content="Chinese large city / cities (C)" />
+                        <ComboBoxItem Content="Chinese large city / cities (D)" />
+                        <ComboBoxItem Content="Chinese science discount" />
+                        <ComboBoxItem Content="Chinese light infantry [CBP]" />
+                        <ComboBoxItem Content="Persians bonus food (A)" />
+                        <ComboBoxItem Content="Persians bonus food (B)" />
+                        <ComboBoxItem Content="Persians capitals (A)" />
+                        <ComboBoxItem Content="Persians capitals (B)" />
+                        <ComboBoxItem Content="Persians capitals (C)" />
+                        <ComboBoxItem Content="Persians capitals (D)" />
+                        <ComboBoxItem Content="Persians capitals (E)" />
+                        <ComboBoxItem Content="Persians capitals (F)" />
+                        <ComboBoxItem Content="Persians capitals (G)" />
+                        <ComboBoxItem Content="Persians capitals (H)" />
+                        <ComboBoxItem Content="Persians capitals (I)" />
+                        <ComboBoxItem Content="Persians caravans" />
+                        <ComboBoxItem Content="Persians civic discount" />
+                        <ComboBoxItem Content="Persians despotism (A)" />
+                        <ComboBoxItem Content="Persians despotism (B)" />
+                        <ComboBoxItem Content="Persians taxation" />
+                        <ComboBoxItem Content="Persian capitals worldgov fix [CBP]" />
+                        <ComboBoxItem Content="Persian cheaper conv missiles [CBP]" />
+                        <ComboBoxItem Content="Persian faster conv missiles [CBP]" />
+                    </ComboBox>
+
+                    <Button Content="Reassign nation power"
+                            HorizontalAlignment="Center"
+                            Margin="0,26,0,0"
+                            Background="Bisque"
+                            BorderBrush="Tan"
+                            BorderThickness="1"
+                            Click="AddReassignment_Click" />
+                </StackPanel>
+            </Border>
+
+            <Separator Margin="10,10,10,10"/>
+
+            <!-- ..each parent border only supports one child, so we need a separate second border->stackpanel here -->
+            <Border Grid.Column="0" Padding="15">
+                <StackPanel Spacing="0">
+                    <TextBlock Text="Add new nation power"
+                        FontSize="18"
+                        FontWeight="Bold" />
+
+                    <StackPanel Orientation="Horizontal" Margin="0,16,0,0" >
+                         <TextBlock Text="New nation power"/>
+                         <TextBlock Text="ⓘ" Padding="4,0" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center" Background="WhiteSmoke" 
+                            ToolTip.Tip="X/Y/Z values are only used when relevant to the selection. Nation power rules follow RoN norms: cheaper is base cost, %faster is not %reduction, free starting stuff doesn't work in nomad." ToolTip.Placement="Right" />
+                    </StackPanel>
+                    <ComboBox x:Name="AsmBlockTypeCombo" SelectedIndex="0" Background="White" Width="240">
+                        <ComboBoxItem Content="X unit is Y% cheaper to build" />
+                        <ComboBoxItem Content="X unit is Y% faster to build" />
+                        <!--<ComboBoxItem Content="Get Z tech automatically and for free" />--><!-- it turns out that I would need two tech params here - the implementation has tech bookends and gives you everything between them -->
+                        <ComboBoxItem Content="Start game with X unit" />
+                        <ComboBoxItem Content="Start game with Z1 tech" />
+                        <ComboBoxItem Content="Start game with Z2 building" />
+                    </ComboBox>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                        <TextBlock Text="Nation" />
+                        <TextBlock Text="ⓘ" Padding="4,0" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center" Background="WhiteSmoke" 
+                            ToolTip.Tip="Nations are listed in internal game order." ToolTip.Placement="Right" />
+                    </StackPanel>
+                    <ComboBox x:Name="AsmBlockNationCombo" SelectedIndex="0" Background="White" Width="160">
+                        <ComboBoxItem Content="AZTECS = 0x00" />
+                        <ComboBoxItem Content="MAYA = 0x01" />
+                        <ComboBoxItem Content="INCA = 0x02" />
+                        <ComboBoxItem Content="BANTU = 0x03" />
+                        <ComboBoxItem Content="NUBIANS = 0x04" />
+                        <ComboBoxItem Content="GREEKS = 0x05" />
+                        <ComboBoxItem Content="ROMANS = 0x06" />
+                        <ComboBoxItem Content="EGYPTIANS = 0x07" />
+                        <ComboBoxItem Content="TURKS = 0x08" />
+                        <ComboBoxItem Content="SPANISH = 0x09" />
+                        <ComboBoxItem Content="FRENCH = 0x0A" />
+                        <ComboBoxItem Content="BRITISH = 0x0B" />
+                        <ComboBoxItem Content="GERMANS = 0x0C" />
+                        <ComboBoxItem Content="RUSSIANS = 0x0D" />
+                        <ComboBoxItem Content="CHINESE = 0x0E" />
+                        <ComboBoxItem Content="JAPANESE = 0x0F" />
+                        <ComboBoxItem Content="KOREANS = 0x10" />
+                        <ComboBoxItem Content="MONGOLS = 0x11" />
+                        <ComboBoxItem Content="IROQUOIS = 0x12" />
+                        <ComboBoxItem Content="LAKOTA = 0x13" />
+                        <ComboBoxItem Content="AMERICANS = 0x14" />
+                        <ComboBoxItem Content="INDIANS = 0x15" />
+                        <ComboBoxItem Content="DUTCH = 0x16" />
+                        <ComboBoxItem Content="PERSIANS = 0x17" />
+                        <ComboBoxItem Content="NO_NATION = 0x69" />
+                    </ComboBox>
+
+                    <Grid ColumnDefinitions="280, 20, 60, *" RowDefinitions="*, *, *">
+                        <StackPanel Grid.Column="0" >
+                            <StackPanel Orientation="Horizontal" Margin="0,16,0,0" >
+                                <TextBlock Text="X: Unit"/>
+                                 <TextBlock Text="ⓘ" Padding="4,0" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center" Background="WhiteSmoke" 
+                                    ToolTip.Tip="Unit names currently per internal naming, which doesn't completely match in-game names. Unit selection includes grafts and upgrades. For example, selecting Slingers will affect all Light Infantry (plus Gunpowder Infantry and Modern Infantry)." ToolTip.Placement="Right" />
+                            </StackPanel>
+                            <ComboBox x:Name="AsmBlockUnitCombo" SelectedIndex="0" Background="White" HorizontalAlignment="Stretch">
+                                <ComboBoxItem Content="PEASANTS=50" />
+                                <ComboBoxItem Content="PEASANTSKOREAN=51" />
+                                <ComboBoxItem Content="SCHOLARS=52" />
+                                <ComboBoxItem Content="SCHOLARSKOREAN=53" />
+                                <ComboBoxItem Content="GENERAL=54" />
+                                <ComboBoxItem Content="GENERALCTWE=55" />
+                                <ComboBoxItem Content="GENERALCTWW=56" />
+                                <ComboBoxItem Content="GENERALGERMAN=57" />
+                                <ComboBoxItem Content="SPY=58" />
+                                <ComboBoxItem Content="CARA=59" />
+                                <ComboBoxItem Content="CARADUTCH=60" />
+                                <ComboBoxItem Content="MERCHANT=61" />
+                                <ComboBoxItem Content="MERCHANTDUTCH=62" />
+                                <ComboBoxItem Content="SUPPLYWAGON=63" />
+                                <ComboBoxItem Content="SUPPLYWAGONAMER=64" />
+                                <ComboBoxItem Content="SUPPLYWAGONDUTCH=65" />
+                                <ComboBoxItem Content="MILITIA=66" />
+                                <ComboBoxItem Content="MINUTEMAN=67" />
+                                <ComboBoxItem Content="PARTISAN=68" />
+                                <ComboBoxItem Content="SCOUT=69" />
+                                <ComboBoxItem Content="SCOUTKOREAN=70" />
+                                <ComboBoxItem Content="EXPLORER=71" />
+                                <ComboBoxItem Content="EXPLORERKOREAN=72" />
+                                <ComboBoxItem Content="COMMANDO=73" />
+                                <ComboBoxItem Content="COMMANDOSPANISH=74" />
+                                <ComboBoxItem Content="SPECIALFORCES=75" />
+                                <ComboBoxItem Content="SPECIALFORCESSPANISH=76" />
+                                <ComboBoxItem Content="ELITESPECIALFORCES=77" />
+                                <ComboBoxItem Content="ELITESPECIALSPANISH=78" />
+                                <ComboBoxItem Content="IRQSCOUT=79" />
+                                <ComboBoxItem Content="IRQEXPLORER=80" />
+                                <ComboBoxItem Content="IRQCOMMANDO=81" />
+                                <ComboBoxItem Content="SLINGERS=82" />
+                                <ComboBoxItem Content="JAVELINEERS=83" />
+                                <ComboBoxItem Content="PELTASTS=84" />
+                                <ComboBoxItem Content="ATLATL=85" />
+                                <ComboBoxItem Content="ELITEATLATL=86" />
+                                <ComboBoxItem Content="XOPATLATL=87" />
+                                <ComboBoxItem Content="BALAMOBSLINGERS=88" />
+                                <ComboBoxItem Content="EBALAMOBSLINGERS=89" />
+                                <ComboBoxItem Content="EAGLEBALAMOBSLINGERS=90" />
+                                <ComboBoxItem Content="INTICLUBMEN=91" />
+                                <ComboBoxItem Content="INTIMACEMEN=92" />
+                                <ComboBoxItem Content="UMPAKATI=93" />
+                                <ComboBoxItem Content="YANGOMBIUMPAKATI=94" />
+                                <ComboBoxItem Content="IMPI=95" />
+                                <ComboBoxItem Content="FIRELANCES=96" />
+                                <ComboBoxItem Content="EFIRELANCES=97" />
+                                <ComboBoxItem Content="ARQUEBUSIERS=98" />
+                                <ComboBoxItem Content="MUSKETEER=99" />
+                                <ComboBoxItem Content="RIFLEMAN=100" />
+                                <ComboBoxItem Content="RIFLEMENGERMAN=101" />
+                                <ComboBoxItem Content="INFANTRY=102" />
+                                <ComboBoxItem Content="INFANTRYGER=103" />
+                                <ComboBoxItem Content="MECHINFANTRY=104" />
+                                <ComboBoxItem Content="MECHINFANTRYCTWE=105" />
+                                <ComboBoxItem Content="MECHINFANTRYCTWW=106" />
+                                <ComboBoxItem Content="REDGUARDSINFANTRY=107" />
+                                <ComboBoxItem Content="SHOCKINFANTRY=108" />
+                                <ComboBoxItem Content="INFANTRYGERMAN=109" />
+                                <ComboBoxItem Content="JAGMUSKETEERS=110" />
+                                <ComboBoxItem Content="JAGRIFLEMEN=111" />
+                                <ComboBoxItem Content="JANISSARY=112" />
+                                <ComboBoxItem Content="ELITEJANISSARY=113" />
+                                <ComboBoxItem Content="HIGHLANDERS=114" />
+                                <ComboBoxItem Content="EHIGHLANDERS=115" />
+                                <ComboBoxItem Content="MANCHUMUSKETEERS=116" />
+                                <ComboBoxItem Content="MANCHURIFLEMEN=117" />
+                                <ComboBoxItem Content="MANCHUINFANTRY=118" />
+                                <ComboBoxItem Content="MARINES=119" />
+                                <ComboBoxItem Content="MARINERIFLEMEN=120" />
+                                <ComboBoxItem Content="MARINEINFANTRY=121" />
+                                <ComboBoxItem Content="ASSAULTMARINES=122" />
+                                <ComboBoxItem Content="MACHINEGUN=123" />
+                                <ComboBoxItem Content="MACHINEGUNGERMAN=124" />
+                                <ComboBoxItem Content="HVYMACHINEGUN=125" />
+                                <ComboBoxItem Content="HVYMACHINEGUNGERMAN=126" />
+                                <ComboBoxItem Content="ADVANCEDMACHINEGUN=127" />
+                                <ComboBoxItem Content="ADVANCEDMACHINEGUNCTWE=128" />
+                                <ComboBoxItem Content="ADVANCEDMACHINEGUNCTWW=129" />
+                                <ComboBoxItem Content="HVYMACHINEGUNMG42=130" />
+                                <ComboBoxItem Content="FLAMETHROWER=131" />
+                                <ComboBoxItem Content="HOPLITES=132" />
+                                <ComboBoxItem Content="PHALANX=133" />
+                                <ComboBoxItem Content="PIKEMEN=134" />
+                                <ComboBoxItem Content="ELITEPIKE=135" />
+                                <ComboBoxItem Content="FUSILIER=136" />
+                                <ComboBoxItem Content="ATRIFLE=137" />
+                                <ComboBoxItem Content="ANTITANKRIFLEGERMAN=138" />
+                                <ComboBoxItem Content="BAZOOKA=139" />
+                                <ComboBoxItem Content="BAZOOKAGERMAN=140" />
+                                <ComboBoxItem Content="TOW=141" />
+                                <ComboBoxItem Content="TOWCTWE=142" />
+                                <ComboBoxItem Content="TOWCTWW=143" />
+                                <ComboBoxItem Content="RECOILGUN=144" />
+                                <ComboBoxItem Content="DRAGON=145" />
+                                <ComboBoxItem Content="LEGIONS=146" />
+                                <ComboBoxItem Content="ELEGIONS=147" />
+                                <ComboBoxItem Content="PIKELEGIONS=148" />
+                                <ComboBoxItem Content="HALBERDIERS=149" />
+                                <ComboBoxItem Content="EHALBERDIERS=150" />
+                                <ComboBoxItem Content="TERCIOS=151" />
+                                <ComboBoxItem Content="ETERCIOS=152" />
+                                <ComboBoxItem Content="SOLDURI=153" />
+                                <ComboBoxItem Content="BARBARIANS=154" />
+                                <ComboBoxItem Content="ELITEBARBARIANS=155" />
+                                <ComboBoxItem Content="VANDALS=156" />
+                                <ComboBoxItem Content="ASHIGARUSPEARMEN=157" />
+                                <ComboBoxItem Content="BUSHI=158" />
+                                <ComboBoxItem Content="EBUSHI=159" />
+                                <ComboBoxItem Content="SAMURAI=160" />
+                                <ComboBoxItem Content="ELITESAMURAI=161" />
+                                <ComboBoxItem Content="IMMORTALS=162" />
+                                <ComboBoxItem Content="ANUSIYA=163" />
+                                <ComboBoxItem Content="ATHANATOI=164" />
+                                <ComboBoxItem Content="ARQIMMORTAL=165" />
+                                <ComboBoxItem Content="IRQSPEAR=166" />
+                                <ComboBoxItem Content="IRQMOSPEAR=167" />
+                                <ComboBoxItem Content="IRQHMOSPEAR=168" />
+                                <ComboBoxItem Content="IRQEMOSPEAR=169" />
+                                <ComboBoxItem Content="BOWMEN=170" />
+                                <ComboBoxItem Content="ARCHERS=171" />
+                                <ComboBoxItem Content="CROSSBOWMEN=172" />
+                                <ComboBoxItem Content="HEAVYARCHERS=173" />
+                                <ComboBoxItem Content="KUSHITEARCHERS=174" />
+                                <ComboBoxItem Content="EKUSHITEARCHERS=175" />
+                                <ComboBoxItem Content="APEDEMAKARCHERS=176" />
+                                <ComboBoxItem Content="LONGBOWMEN=177" />
+                                <ComboBoxItem Content="ELONGBOWMEN=178" />
+                                <ComboBoxItem Content="KINGSYEOMANRY=179" />
+                                <ComboBoxItem Content="HWARANG=180" />
+                                <ComboBoxItem Content="EHWARANG=181" />
+                                <ComboBoxItem Content="KORYOHWARANG=182" />
+                                <ComboBoxItem Content="CHOSONHWARANG=183" />
+                                <ComboBoxItem Content="IMMORTALARCHERS=184" />
+                                <ComboBoxItem Content="ANUSIYAARCHERS=185" />
+                                <ComboBoxItem Content="ATHANATOIARCHERS=186" />
+                                <ComboBoxItem Content="HORSEARCHERS=187" />
+                                <ComboBoxItem Content="CAVARCHERS=188" />
+                                <ComboBoxItem Content="DRAGOON=189" />
+                                <ComboBoxItem Content="CARBINEER=190" />
+                                <ComboBoxItem Content="CAMELRANGE2=191" />
+                                <ComboBoxItem Content="CAMELRANGE3=192" />
+                                <ComboBoxItem Content="CAMELRAIDER=193" />
+                                <ComboBoxItem Content="ECAMELRAIDER=194" />
+                                <ComboBoxItem Content="CHARIOT=195" />
+                                <ComboBoxItem Content="ECHARIOT=196" />
+                                <ComboBoxItem Content="MAMELUKE=197" />
+                                <ComboBoxItem Content="ROYALMAMELUKE=198" />
+                                <ComboBoxItem Content="NOMAD=199" />
+                                <ComboBoxItem Content="ENOMAD=200" />
+                                <ComboBoxItem Content="CONQUISTADOR=201" />
+                                <ComboBoxItem Content="ECONQUISTADOR=202" />
+                                <ComboBoxItem Content="HORDE=203" />
+                                <ComboBoxItem Content="GOLDENHORDE=204" />
+                                <ComboBoxItem Content="SUNKAWAKAN=205" />
+                                <ComboBoxItem Content="EAGLEFEATHER=206" />
+                                <ComboBoxItem Content="MUSKETHORSE=207" />
+                                <ComboBoxItem Content="RIFLEHORSE=208" />
+                                <ComboBoxItem Content="HORSE=209" />
+                                <ComboBoxItem Content="LIGHTCAVALRY=210" />
+                                <ComboBoxItem Content="HUSSARS=211" />
+                                <ComboBoxItem Content="ELITEHUSSARS=212" />
+                                <ComboBoxItem Content="CAMEL=213" />
+                                <ComboBoxItem Content="CAMELRIDER=214" />
+                                <ComboBoxItem Content="ELITECAMEL=215" />
+                                <ComboBoxItem Content="ARMOREDCAR=216" />
+                                <ComboBoxItem Content="GREYHOUND=217" />
+                                <ComboBoxItem Content="ARMOREDSCOUTCAR=218" />
+                                <ComboBoxItem Content="ARMOREDSCOUTCAR2=219" />
+                                <ComboBoxItem Content="ARMOREDCAVALRY=220" />
+                                <ComboBoxItem Content="ARMOREDCAVALRYCTWE=221" />
+                                <ComboBoxItem Content="ARMOREDCAVALRYCTWW=222" />
+                                <ComboBoxItem Content="BMP=223" />
+                                <ComboBoxItem Content="RUSINYLANCER=224" />
+                                <ComboBoxItem Content="COSSACK=225" />
+                                <ComboBoxItem Content="DONCOSSACK=226" />
+                                <ComboBoxItem Content="CATAPHRACT=227" />
+                                <ComboBoxItem Content="KNIGHT=228" />
+                                <ComboBoxItem Content="ELITEKNIGHT=229" />
+                                <ComboBoxItem Content="CUIRASSIERS=230" />
+                                <ComboBoxItem Content="COMPANION=231" />
+                                <ComboBoxItem Content="ECOMPANION=232" />
+                                <ComboBoxItem Content="STRATIOTAI=233" />
+                                <ComboBoxItem Content="ESTRATIOTAI=234" />
+                                <ComboBoxItem Content="CHEVALIER=235" />
+                                <ComboBoxItem Content="ECHEVALIER=236" />
+                                <ComboBoxItem Content="HORSEGRENADIER=237" />
+                                <ComboBoxItem Content="EHORSEGRENADIER=238" />
+                                <ComboBoxItem Content="LIGHTTANK=239" />
+                                <ComboBoxItem Content="MARK4=240" />
+                                <ComboBoxItem Content="MARK4DES=241" />
+                                <ComboBoxItem Content="A7V=242" />
+                                <ComboBoxItem Content="A7VDES=243" />
+                                <ComboBoxItem Content="MEDIUMTANK=244" />
+                                <ComboBoxItem Content="CHURCHILLDES=245" />
+                                <ComboBoxItem Content="SHERMAN=246" />
+                                <ComboBoxItem Content="SHERMANDES=247" />
+                                <ComboBoxItem Content="T34=248" />
+                                <ComboBoxItem Content="CHIHA=249" />
+                                <ComboBoxItem Content="PANZER=250" />
+                                <ComboBoxItem Content="HEAVYTANK=251" />
+                                <ComboBoxItem Content="HEAVYTANKCTWE=252" />
+                                <ComboBoxItem Content="HEAVYTANKCTWW=253" />
+                                <ComboBoxItem Content="ABRAM=254" />
+                                <ComboBoxItem Content="ABRAMDES=255" />
+                                <ComboBoxItem Content="T80=256" />
+                                <ComboBoxItem Content="T80DES=257" />
+                                <ComboBoxItem Content="TIGERTANK=258" />
+                                <ComboBoxItem Content="LEOPARDTANK=259" />
+                                <ComboBoxItem Content="RUSSHEAVYTANK=260" />
+                                <ComboBoxItem Content="HVYELEPHANT=261" />
+                                <ComboBoxItem Content="MAHOUT=262" />
+                                <ComboBoxItem Content="GUNMAHOUT=263" />
+                                <ComboBoxItem Content="CULMAHOUT=264" />
+                                <ComboBoxItem Content="CATAPULT=265" />
+                                <ComboBoxItem Content="TREBUCHET=266" />
+                                <ComboBoxItem Content="BOMBARD=267" />
+                                <ComboBoxItem Content="CANNON=268" />
+                                <ComboBoxItem Content="ARTILLERY=269" />
+                                <ComboBoxItem Content="ARTILLERYGERMAN=270" />
+                                <ComboBoxItem Content="HOWITZER=271" />
+                                <ComboBoxItem Content="HUMMEL=272" />
+                                <ComboBoxItem Content="MLRS=273" />
+                                <ComboBoxItem Content="MORTAR=274" />
+                                <ComboBoxItem Content="SIEGEMORTAR=275" />
+                                <ComboBoxItem Content="BASILICABOMBARD=276" />
+                                <ComboBoxItem Content="BASILICACANNON=277" />
+                                <ComboBoxItem Content="KATYUSHA=278" />
+                                <ComboBoxItem Content="FLAMINGARROW=279" />
+                                <ComboBoxItem Content="HEAVYFLAMINGARROW=280" />
+                                <ComboBoxItem Content="AAGUN=281" />
+                                <ComboBoxItem Content="AABATTERY=282" />
+                                <ComboBoxItem Content="FLAKGUNGERMAN=283" />
+                                <ComboBoxItem Content="AAMISSILE=284" />
+                                <ComboBoxItem Content="AAMISSILECTWE=285" />
+                                <ComboBoxItem Content="AAMISSILECTWW=286" />
+                                <ComboBoxItem Content="BIPLANE=287" />
+                                <ComboBoxItem Content="ALBATROSS=288" />
+                                <ComboBoxItem Content="FIGHTER=289" />
+                                <ComboBoxItem Content="P40=290" />
+                                <ComboBoxItem Content="P40DES=291" />
+                                <ComboBoxItem Content="ME109=292" />
+                                <ComboBoxItem Content="FIGHTERZERO=293" />
+                                <ComboBoxItem Content="MUSTANG=294" />
+                                <ComboBoxItem Content="JETFIGHTER=295" />
+                                <ComboBoxItem Content="MIRAGE=296" />
+                                <ComboBoxItem Content="TORNADO=297" />
+                                <ComboBoxItem Content="TORNADODES=298" />
+                                <ComboBoxItem Content="MIG=299" />
+                                <ComboBoxItem Content="MIGDES=300" />
+                                <ComboBoxItem Content="ADVFIGHTER=301" />
+                                <ComboBoxItem Content="HAWKFB=302" />
+                                <ComboBoxItem Content="EAGLEFB=303" />
+                                <ComboBoxItem Content="BOMBER=304" />
+                                <ComboBoxItem Content="STRATEGICBOMBER=305" />
+                                <ComboBoxItem Content="STEALTHBOMBER=306" />
+                                <ComboBoxItem Content="LANCASTERBOMBER=307" />
+                                <ComboBoxItem Content="FIGHTERBOMBER=308" />
+                                <ComboBoxItem Content="JETFIGHTERBOMBER=309" />
+                                <ComboBoxItem Content="HELICOPTER=310" />
+                                <ComboBoxItem Content="TRANSPORTHELICOPTER=311" />
+                                <ComboBoxItem Content="HIND=312" />
+                                <ComboBoxItem Content="V2ROCKET=313" />
+                                <ComboBoxItem Content="CRUISEMISSILE=314" />
+                                <ComboBoxItem Content="NUCLEARMISSILE=315" />
+                                <ComboBoxItem Content="ICBM=316" />
+                                <ComboBoxItem Content="FISHERMEN=317" />
+                                <ComboBoxItem Content="MERCHANTFLEET=318" />
+                                <ComboBoxItem Content="MODERNMERCHANTFLEET=319" />
+                                <ComboBoxItem Content="TRANSPORTBARGE=320" />
+                                <ComboBoxItem Content="TRANSPORTGALLEON=321" />
+                                <ComboBoxItem Content="TRANSPORTFREIGHTER=322" />
+                                <ComboBoxItem Content="BARK=323" />
+                                <ComboBoxItem Content="DROMON=324" />
+                                <ComboBoxItem Content="CARAVEL=325" />
+                                <ComboBoxItem Content="CORVETTE=326" />
+                                <ComboBoxItem Content="SLOOP=327" />
+                                <ComboBoxItem Content="DESTROYER=328" />
+                                <ComboBoxItem Content="CRUISER=329" />
+                                <ComboBoxItem Content="AEGISCRUISER=330" />
+                                <ComboBoxItem Content="BRIG=331" />
+                                <ComboBoxItem Content="FLUYT=332" />
+                                <ComboBoxItem Content="CLIPPER=333" />
+                                <ComboBoxItem Content="FIRERAFT=334" />
+                                <ComboBoxItem Content="HEAVYFIRERAFT=335" />
+                                <ComboBoxItem Content="FIRESHIP=336" />
+                                <ComboBoxItem Content="HEAVYFIRESHIP=337" />
+                                <ComboBoxItem Content="SUB=338" />
+                                <ComboBoxItem Content="ATTACKSUB=339" />
+                                <ComboBoxItem Content="TRIREME=340" />
+                                <ComboBoxItem Content="GALLEY=341" />
+                                <ComboBoxItem Content="CARRACK=342" />
+                                <ComboBoxItem Content="FRIGATE=343" />
+                                <ComboBoxItem Content="MANOWAR=344" />
+                                <ComboBoxItem Content="SIEGESHIP=345" />
+                                <ComboBoxItem Content="BOMBARDSHIP=346" />
+                                <ComboBoxItem Content="MORTARSHIP=347" />
+                                <ComboBoxItem Content="DREADNOUGHT=348" />
+                                <ComboBoxItem Content="BATTLESHIP=349" />
+                                <ComboBoxItem Content="ADVANCEDBATTLESHIP=350" />
+                                <ComboBoxItem Content="AIRCRAFTCARRIER=351" />
+                                <ComboBoxItem Content="THEDESPOT=352" />
+                                <ComboBoxItem Content="THESENATOR=353" />
+                                <ComboBoxItem Content="THEMONARCH=354" />
+                                <ComboBoxItem Content="THEPRESIDENT=355" />
+                                <ComboBoxItem Content="THECITIZEN=356" />
+                                <ComboBoxItem Content="THECEO=357" />
+                                <ComboBoxItem Content="ALEXANDER=358" />
+                                <ComboBoxItem Content="NAPOLEON=359" />
+                                <ComboBoxItem Content="PARMENIO=360" />
+                                <ComboBoxItem Content="ANTIPATER=361" />
+                                <ComboBoxItem Content="PTOLEMY=362" />
+                                <ComboBoxItem Content="DARIUS=363" />
+                                <ComboBoxItem Content="MEMNON=364" />
+                                <ComboBoxItem Content="SPITAMENES=365" />
+                                <ComboBoxItem Content="CHANDRAGUPTA=366" />
+                                <ComboBoxItem Content="PORUS=367" />
+                                <ComboBoxItem Content="WELLINGTON=368" />
+                                <ComboBoxItem Content="CHARLES=369" />
+                                <ComboBoxItem Content="DJEZZAR=370" />
+                                <ComboBoxItem Content="FOUCHE=371" />
+                                <ComboBoxItem Content="SCHWARZENBERG=372" />
+                                <ComboBoxItem Content="BLUCHER=373" />
+                                <ComboBoxItem Content="KUTOSOV=374" />
+                                <ComboBoxItem Content="PAOLI=375" />
+                                <ComboBoxItem Content="DARIUSCHARIOT=376" />
+                                <ComboBoxItem Content="SHIPOFTHELINE=377" />
+                                <ComboBoxItem Content="JUNKERS=378" />
+                                <ComboBoxItem Content="PATROLJEEP=379" />
+                                <ComboBoxItem Content="SAGUERILLA=380" />
+                                <ComboBoxItem Content="AGUERILLA=381" />
+                                <ComboBoxItem Content="MEGUERILLA=382" />
+                                <ComboBoxItem Content="ASIANGUERILLA=383" />
+                                <ComboBoxItem Content="BANDEIRANTES=384" />
+                                <ComboBoxItem Content="BANDEIRANTESELITE=385" />
+                                <ComboBoxItem Content="REDCOATS=386" />
+                                <ComboBoxItem Content="SAS=387" />
+                                <ComboBoxItem Content="HARRIER=388" />
+                                <ComboBoxItem Content="PATROLBOAT=389" />
+                                <ComboBoxItem Content="HUMVEE=390" />
+                                <ComboBoxItem Content="BARBARIANARCHER=391" />
+                                <ComboBoxItem Content="BARBARIANJAVELINEER=392" />
+                                <ComboBoxItem Content="BARBARIANPHALANX=393" />
+                                <ComboBoxItem Content="GREEKMERCS=394" />
+                                <ComboBoxItem Content="ROYALGUARD=395" />
+                                <ComboBoxItem Content="GALLEON=396" />
+                                <ComboBoxItem Content="IRONCLAD=397" />
+                                <ComboBoxItem Content="NUKESUB=398" />
+                                <ComboBoxItem Content="CATAPULTSHIP=399" />
+                                <ComboBoxItem Content="FURTRAPPER=400" />
+                                <ComboBoxItem Content="UNIQUE=401" />
+                            </ComboBox>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2">
+                            <StackPanel Orientation="Horizontal" Margin="0,16,0,0" >
+                                <TextBlock Text="Y: Value"/>
+                                <TextBlock Text="ⓘ" Padding="4,0" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center" Background="WhiteSmoke" 
+                                    ToolTip.Tip="Due to the assembly implementation (and not testing its limits), max value is 100." ToolTip.Placement="Right" />
+                            </StackPanel>
+                            <NumericUpDown x:Name="AsmBlockValueInput"
+                                           Minimum="0"
+                                           Maximum="100"
+                                           Value="0"
+                                           Increment="1"
+                                           FormatString="{}{0}%"
+                                           ShowButtonSpinner="False"
+                                           Background="White"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="0" Grid.Row="1" HorizontalAlignment="Stretch">
+                            <StackPanel Orientation="Horizontal" Margin="0,16,0,0" >
+                                 <TextBlock Text="Z1: Tech"/>
+                                 <TextBlock Text="ⓘ" Padding="4,0" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center" Background="WhiteSmoke" 
+                                    ToolTip.Tip="Tech names currently per internal naming, which doesn't completely match in-game names. Unlike free units, starting techs must each be declared individually (doesn't implicitly include all techs in one family). In this implementation, declaring a library tech will not grant +1 tech of that color if the specified tech is already provided by another source (e.g., scenarios) and may not work in CtW games." ToolTip.Placement="Right" />
+                            </StackPanel>
+                            <ComboBox x:Name="AsmBlockTechCombo" SelectedIndex="0" Background="White" HorizontalAlignment="Stretch">
+                                <ComboBoxItem Content="CLASSICAL_AGE=544" />
+                                <ComboBoxItem Content="MEDIEVAL_AGE=545" />
+                                <ComboBoxItem Content="GUNPOWDER_AGE=546" />
+                                <ComboBoxItem Content="ENLIGHTENMENT_AGE=547" />
+                                <ComboBoxItem Content="INDUSTRIAL_AGE=548" />
+                                <ComboBoxItem Content="MODERN_AGE=549" />
+                                <ComboBoxItem Content="INFORMATION_AGE=550" />
+                                <ComboBoxItem Content="WRITTEN_WORD=551" />
+                                <ComboBoxItem Content="MATHEMATICS=552" />
+                                <ComboBoxItem Content="CHEMISTRY=553" />
+                                <ComboBoxItem Content="LAWS_OF_NATURE=554" />
+                                <ComboBoxItem Content="ELECTRICITY=555" />
+                                <ComboBoxItem Content="ELECTRONICS=556" />
+                                <ComboBoxItem Content="COMPUTERIZATION=557" />
+                                <ComboBoxItem Content="BARTER=558" />
+                                <ComboBoxItem Content="COINAGE=559" />
+                                <ComboBoxItem Content="TRADE=560" />
+                                <ComboBoxItem Content="MERCANTILISM=561" />
+                                <ComboBoxItem Content="FINANCE=562" />
+                                <ComboBoxItem Content="INDUSTRY=563" />
+                                <ComboBoxItem Content="GLOBALIZATION=564" />
+                                <ComboBoxItem Content="CITY_STATE=565" />
+                                <ComboBoxItem Content="EMPIRE=566" />
+                                <ComboBoxItem Content="FEUDALISM=567" />
+                                <ComboBoxItem Content="DIVINE_RIGHT=568" />
+                                <ComboBoxItem Content="NATION_STATE=569" />
+                                <ComboBoxItem Content="GREAT_POWER=570" />
+                                <ComboBoxItem Content="INTERNATIONAL_LAW=571" />
+                                <ComboBoxItem Content="THE_ART_OF_WAR=572" />
+                                <ComboBoxItem Content="MERCENARIES=573" />
+                                <ComboBoxItem Content="STANDING_ARMY=574" />
+                                <ComboBoxItem Content="CONSCRIPTION=575" />
+                                <ComboBoxItem Content="LEVEE_EN_MASSE=576" />
+                                <ComboBoxItem Content="NATION_IN_ARMS=577" />
+                                <ComboBoxItem Content="SELECTIVE_SERVICE=578" />
+                                <ComboBoxItem Content="MISSILE_SHIELD=579" />
+                                <ComboBoxItem Content="GLOBAL_GOVERNMENT=580" />
+                                <ComboBoxItem Content="VIRTUAL_REALITY=581" />
+                                <ComboBoxItem Content="NANOTECHNOLOGY=582" />
+                                <ComboBoxItem Content="TACTICS=583" />
+                                <ComboBoxItem Content="OPERATIONS=584" />
+                                <ComboBoxItem Content="STRATEGYX=585" />
+                                <ComboBoxItem Content="RELIGION=586" />
+                                <ComboBoxItem Content="MONOTHEISM=587" />
+                                <ComboBoxItem Content="EXISTENTIALISM=588" />
+                                <ComboBoxItem Content="TAXATION=589" />
+                                <ComboBoxItem Content="VASSALAGE=590" />
+                                <ComboBoxItem Content="SOCIAL_CONTRACT=591" />
+                                <ComboBoxItem Content="INCOME_TAX=592" />
+                                <ComboBoxItem Content="FORTIFICATION=593" />
+                                <ComboBoxItem Content="BOMBARDMENT=594" />
+                                <ComboBoxItem Content="STRATEGIC_RESERVES=595" />
+                                <ComboBoxItem Content="ALLEGIANCE=596" />
+                                <ComboBoxItem Content="OATH_OF_FEALTY=597" />
+                                <ComboBoxItem Content="PATRIOTISM=598" />
+                                <ComboBoxItem Content="NATIONALISM=599" />
+                                <ComboBoxItem Content="CONSTRUCTION=600" />
+                                <ComboBoxItem Content="ARCHITECTURE=601" />
+                                <ComboBoxItem Content="ENGINEERING=602" />
+                                <ComboBoxItem Content="HERBAL_LORE=603" />
+                                <ComboBoxItem Content="MEDICINE=604" />
+                                <ComboBoxItem Content="PHARMACEUTICALS=605" />
+                                <ComboBoxItem Content="FORAGE=606" />
+                                <ComboBoxItem Content="SUPPLYX=607" />
+                                <ComboBoxItem Content="LOGISTICS=608" />
+                                <ComboBoxItem Content="CARPENTRY=609" />
+                                <ComboBoxItem Content="LOGGING_INDUSTRY=610" />
+                                <ComboBoxItem Content="PAPERMILL=611" />
+                                <ComboBoxItem Content="AGRICULTURE=612" />
+                                <ComboBoxItem Content="CROP_ROTATION=613" />
+                                <ComboBoxItem Content="FOOD_INDUSTRY=614" />
+                                <ComboBoxItem Content="LITERACY=615" />
+                                <ComboBoxItem Content="PRINTING_PRESS=616" />
+                                <ComboBoxItem Content="SCIENTIFIC_METHOD=617" />
+                                <ComboBoxItem Content="INSTITUTIONAL_RESEARCH=618" />
+                                <ComboBoxItem Content="SUPERCOMPUTERS=619" />
+                                <ComboBoxItem Content="METAL_ALLOYS=620" />
+                                <ComboBoxItem Content="COLD_CASTING=621" />
+                                <ComboBoxItem Content="STEEL=622" />
+                                <ComboBoxItem Content="GOV_EMPIRE=623" />
+                                <ComboBoxItem Content="GOV_REPUBLIC=624" />
+                                <ComboBoxItem Content="GOV_MONARCHY=625" />
+                                <ComboBoxItem Content="GOV_DEMOCRACY=626" />
+                                <ComboBoxItem Content="GOV_SOCIALISM=627" />
+                                <ComboBoxItem Content="GOV_CAPITALISM=628" />
+                            </ComboBox>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="0" Grid.Row="2" HorizontalAlignment="Stretch">
+                            <StackPanel Orientation="Horizontal" Margin="0,16,0,0" >
+                                 <TextBlock Text="Z2: Building"/>
+                                 <TextBlock Text="ⓘ" Padding="4,0" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center" Background="WhiteSmoke" 
+                                    ToolTip.Tip="Building names currently per internal naming, which doesn't completely match in-game names. In this implementation, may not apply to CtW games." ToolTip.Placement="Right" />
+                            </StackPanel>
+                            <ComboBox x:Name="AsmBlockBuildingCombo" SelectedIndex="0" Background="White" HorizontalAlignment="Stretch">
+                                <ComboBoxItem Content="VILLAGE=414" />
+                                <ComboBoxItem Content="TOWN=415" />
+                                <ComboBoxItem Content="METROPOLIS=416" />
+                                <ComboBoxItem Content="FARM=417" />
+                                <ComboBoxItem Content="WOODCUTTER=418" />
+                                <ComboBoxItem Content="MINE=419" />
+                                <ComboBoxItem Content="UNIVERSITY=420" />
+                                <ComboBoxItem Content="OILWELL=421" />
+                                <ComboBoxItem Content="OILPLATFORM=422" />
+                                <ComboBoxItem Content="GRANARY=423" />
+                                <ComboBoxItem Content="LUMBERMILL=424" />
+                                <ComboBoxItem Content="SMELTER=425" />
+                                <ComboBoxItem Content="REFINERY=426" />
+                                <ComboBoxItem Content="BARRACKS=427" />
+                                <ComboBoxItem Content="STABLE=428" />
+                                <ComboBoxItem Content="AUTOPLANT=429" />
+                                <ComboBoxItem Content="SIEGEFACTORY=430" />
+                                <ComboBoxItem Content="FACTORY=431" />
+                                <ComboBoxItem Content="DOCK=432" />
+                                <ComboBoxItem Content="ANCHORAGE=433" />
+                                <ComboBoxItem Content="SHIPYARD=434" />
+                                <ComboBoxItem Content="LIBRARY=435" />
+                                <ComboBoxItem Content="MARKET=436" />
+                                <ComboBoxItem Content="TEMPLE=437" />
+                                <ComboBoxItem Content="SENATE=438" />
+                                <ComboBoxItem Content="TOWER=439" />
+                                <ComboBoxItem Content="KEEP=440" />
+                                <ComboBoxItem Content="STOCKADE=441" />
+                                <ComboBoxItem Content="BUNKER=442" />
+                                <ComboBoxItem Content="FORTX=443" />
+                                <ComboBoxItem Content="CASTLE=444" />
+                                <ComboBoxItem Content="FORTRESS=445" />
+                                <ComboBoxItem Content="REDOUBT=446" />
+                                <ComboBoxItem Content="AIRBASE=447" />
+                                <ComboBoxItem Content="ELDORADO=448" />
+                                <ComboBoxItem Content="WASHINGTONMONUMENT=449" />
+                                <ComboBoxItem Content="LENINSTATUE=450" />
+                                <ComboBoxItem Content="HOUSE_A0=451" />
+                                <ComboBoxItem Content="HOUSE_A1=452" />
+                                <ComboBoxItem Content="HOUSE_A2=453" />
+                                <ComboBoxItem Content="HOUSE_A3=454" />
+                                <ComboBoxItem Content="HOUSE_A4=455" />
+                                <ComboBoxItem Content="HOUSE_A5=456" />
+                                <ComboBoxItem Content="HOUSE_B0=457" />
+                                <ComboBoxItem Content="HOUSE_B1=458" />
+                                <ComboBoxItem Content="HOUSE_B2=459" />
+                                <ComboBoxItem Content="HOUSE_B3=460" />
+                                <ComboBoxItem Content="HOUSE_B4=461" />
+                                <ComboBoxItem Content="HOUSE_B5=462" />
+                                <ComboBoxItem Content="HOUSE_C0=463" />
+                                <ComboBoxItem Content="HOUSE_C1=464" />
+                                <ComboBoxItem Content="HOUSE_C2=465" />
+                                <ComboBoxItem Content="HOUSE_C3=466" />
+                                <ComboBoxItem Content="HOUSE_C4=467" />
+                                <ComboBoxItem Content="HOUSE_C5=468" />
+                                <ComboBoxItem Content="HOUSE_D0=469" />
+                                <ComboBoxItem Content="HOUSE_D1=470" />
+                                <ComboBoxItem Content="HOUSE_D2=471" />
+                                <ComboBoxItem Content="HOUSE_D3=472" />
+                                <ComboBoxItem Content="HOUSE_D4=473" />
+                                <ComboBoxItem Content="HOUSE_D5=474" />
+                                <ComboBoxItem Content="HOUSE_E0=475" />
+                                <ComboBoxItem Content="HOUSE_E1=476" />
+                                <ComboBoxItem Content="HOUSE_E2=477" />
+                                <ComboBoxItem Content="HOUSE_E3=478" />
+                                <ComboBoxItem Content="HOUSE_E4=479" />
+                                <ComboBoxItem Content="HOUSE_E5=480" />
+                                <ComboBoxItem Content="HOUSE_F0=481" />
+                                <ComboBoxItem Content="HOUSE_F1=482" />
+                                <ComboBoxItem Content="HOUSE_F2=483" />
+                                <ComboBoxItem Content="HOUSE_F3=484" />
+                                <ComboBoxItem Content="HOUSE_F4=485" />
+                                <ComboBoxItem Content="HOUSE_F5=486" />
+                                <ComboBoxItem Content="APTHOUSE_A0=487" />
+                                <ComboBoxItem Content="APTHOUSE_A1=488" />
+                                <ComboBoxItem Content="APTHOUSE_A2=489" />
+                                <ComboBoxItem Content="APTHOUSE_A3=490" />
+                                <ComboBoxItem Content="APTHOUSE_B0=491" />
+                                <ComboBoxItem Content="APTHOUSE_B1=492" />
+                                <ComboBoxItem Content="APTHOUSE_B2=493" />
+                                <ComboBoxItem Content="APTHOUSE_B3=494" />
+                                <ComboBoxItem Content="APTHOUSE_C0=495" />
+                                <ComboBoxItem Content="APTHOUSE_C1=496" />
+                                <ComboBoxItem Content="APTHOUSE_C2=497" />
+                                <ComboBoxItem Content="APTHOUSE_C3=498" />
+                                <ComboBoxItem Content="APTHOUSE_D0=499" />
+                                <ComboBoxItem Content="APTHOUSE_D1=500" />
+                                <ComboBoxItem Content="APTHOUSE_D2=501" />
+                                <ComboBoxItem Content="APTHOUSE_D3=502" />
+                                <ComboBoxItem Content="APTHOUSE_E0=503" />
+                                <ComboBoxItem Content="APTHOUSE_E1=504" />
+                                <ComboBoxItem Content="APTHOUSE_E2=505" />
+                                <ComboBoxItem Content="APTHOUSE_E3=506" />
+                                <ComboBoxItem Content="OFFICE_A0=507" />
+                                <ComboBoxItem Content="OFFICE_A1=508" />
+                                <ComboBoxItem Content="OFFICE_A2=509" />
+                                <ComboBoxItem Content="OFFICE_A3=510" />
+                                <ComboBoxItem Content="OFFICE_B0=511" />
+                                <ComboBoxItem Content="OFFICE_B1=512" />
+                                <ComboBoxItem Content="OFFICE_B2=513" />
+                                <ComboBoxItem Content="OFFICE_B3=514" />
+                                <ComboBoxItem Content="OFFICE_C0=515" />
+                                <ComboBoxItem Content="OFFICE_C1=516" />
+                                <ComboBoxItem Content="OFFICE_C2=517" />
+                                <ComboBoxItem Content="OFFICE_C3=518" />
+                                <ComboBoxItem Content="COURTYARDFOUNTAIN=519" />
+                                <ComboBoxItem Content="MISSILESILO=520" />
+                                <ComboBoxItem Content="LOOKOUT=521" />
+                                <ComboBoxItem Content="OBSERVATIONPOST=522" />
+                                <ComboBoxItem Content="AIRDEFENSE=523" />
+                                <ComboBoxItem Content="RADAR=524" />
+                                <ComboBoxItem Content="SAM=525" />
+                                <ComboBoxItem Content="PYRAMIDS=526" />
+                                <ComboBoxItem Content="COLOSSUS=527" />
+                                <ComboBoxItem Content="HANGINGGARDENS=528" />
+                                <ComboBoxItem Content="TERRACOTTA=529" />
+                                <ComboBoxItem Content="COLOSSEUM=530" />
+                                <ComboBoxItem Content="FORBIDDENCITY=531" />
+                                <ComboBoxItem Content="TIKAL=532" />
+                                <ComboBoxItem Content="PORCELAIN=533" />
+                                <ComboBoxItem Content="REDFORT=534" />
+                                <ComboBoxItem Content="ANGKORWAT=535" />
+                                <ComboBoxItem Content="VERSAILLES=536" />
+                                <ComboBoxItem Content="STATUEOFLIBERTY=537" />
+                                <ComboBoxItem Content="KREMLIN=538" />
+                                <ComboBoxItem Content="TAJMAHAL=539" />
+                                <ComboBoxItem Content="EIFFELTOWER=540" />
+                                <ComboBoxItem Content="SUPERCOLLIDER=541" />
+                                <ComboBoxItem Content="SPACEPROGRAM=542" />
+                            </ComboBox>
+                        </StackPanel>
+                    </Grid>
+
+                    <Button Content="Add nation power"
+                            HorizontalAlignment="Center"
+                            Margin="0,26,0,0"
+                            Background="Bisque"
+                            BorderBrush="Tan"
+                            Click="AddAsmBlock_Click" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
+        <!-- right side (you are king) -->
+        <Grid Grid.Column="1" RowDefinitions="*, 200">
+            <!-- a list of stuff that's been added -->
+            <Grid Grid.Row="0" RowDefinitions="Auto, *" Background="Gainsboro">
+                <TextBlock Grid.Row="0" Text="Currently Selected Changes" FontWeight="Bold" FontSize="24" HorizontalAlignment="Center" Margin="0,10,0,10"/>
+                <ListBox Grid.Row="1" ItemsSource="{Binding Entries}" Background="Gainsboro" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.AllowAutoHide="False">
+                    <!-- Otherwise the implicit padding makes the list take up too much space vertically -->
+                    <ListBox.Styles>
+                        <Style Selector="ListBoxItem">
+                            <Setter Property="Padding" Value="8,3"/>
+                        </Style>
+                    </ListBox.Styles>
+                </ListBox>
+            </Grid>
+
+            <!-- Adapted I/O controls from mechcommander mantis project -->
+            <StackPanel Grid.Row="1">
+                <StackPanel Margin="0,5,0,0">
+                    <TextBlock Text="RoN exe path (input)" FontSize="18" FontWeight="Bold" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                    <Grid>
+                        <!-- 2-column grids replacing horizontal stack panels so that the textboxes fill available width -->
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Button Grid.Column="0" Width="70" Content="Browse..." Background="Linen" BorderBrush="Tan" BorderThickness="1" Click="BrowseInput_Click" FontSize="13"/>
+                        <TextBox Grid.Column="1" Name="InputExeTextBox" Text="File path of Rise of Nations CBPa11 exe (e.g., riseofnations_CBPa11.exe)..." FontSize="12" FontWeight="Regular" Margin="5,0,10,0" VerticalAlignment="Top" IsEnabled="False"/>
+                    </Grid>
+                </StackPanel>
+                <StackPanel Margin="0,5,0,0">
+                    <TextBlock Text="Patched exe patch (output)" FontSize="18" FontWeight="Bold" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+                    <Grid>
+                        <!-- 2-column grids replacing horizontal stack panels so that the textboxes fill available width -->
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Button Grid.Column="0" Width="70" Content="Browse..." Background="Linen" BorderBrush="Tan" BorderThickness="1" Click="BrowseOutput_Click" FontSize="13"/>
+                        <TextBox Grid.Column="1" Name="OutputExeTextBox" Text="File path for the patched exe (e.g., riseofnations_X2.exe)..." FontSize="12" FontWeight="Regular" Margin="5,0,10,0" VerticalAlignment="Top" IsEnabled="False"/>
+                    </Grid>
+                    <StackPanel Orientation="Horizontal">
+                    </StackPanel>
+                </StackPanel>
+                <Button Name="PatchButton" 
+                        Margin="0,15,0,0" 
+                        FontSize="16" 
+                        FontWeight="Bold" 
+                        Width=""
+                        Height="34" 
+                        HorizontalAlignment="Center" 
+                        VerticalAlignment="Center"
+                        Background="Bisque"
+                        BorderBrush="Tan"
+                        BorderThickness="2"
+                        Click="SaveButton_Click" >
+                    <Button.Content>
+                        <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center">Save patched exe</TextBlock>
+                    </Button.Content>
+                </Button>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>
