@@ -24,7 +24,7 @@ Because of its prototype nature, this implementation comes with several time-sav
   - Start game with Z1 tech. _(note: this mangles some assembly instructions and then restores them later)_
   - Start game with Z2 building. _(note: this mangles some assembly instructions and then restores them later)_
 - New nation powers can't be "reverse" assigned.
-- UI is half-baked; game-internal names are used for units/buildings/techs).
+- UI is half-baked; game-internal names are used for units/buildings/techs.
 - Much of the code is whatever the opposite of robust is and the current design will not scale well if extended significantly.
 - Probably has undiscovered bugs, though I did start several dozen patched games while testing.
 - The input exe exclusively accepts CBPa11 because it was easier for me, even though this tool completely undermines game balance.
