@@ -16,7 +16,7 @@ Because of its prototype nature, this implementation comes with several time-sav
 
 - No changes to e.g., maximum number of nations.
 - Only nation powers are affected (no changes to rares, wonders, etc).
-- Nation power reassignment is only available for **C**hinese, **B**antu, and **P**ersians nation powers.
+- Nation power reassignment is only available for **C**hinese, **B**antu, and **P**ersians nation powers. These align with the internal enum numbering of 0xE, 0x3, and 0x14 respectively and were chosen randomly when rolling a random number between 1 and [394,020,061,963,944,792,122,790,401,001,436,138,050,797,392,704,654,466,679,482,934,042,457,217,714,972,106,114,142,662,548,849,156,408,066,279,903,068,160](https://en.wikipedia.org/wiki/EMudhra#2026_weak_key_incident).
 - Only five types of "new" nation powers can be added:
   - X unit is Y% cheaper to build (max 100%).
   - X unit is Y% faster to build (max 100%).
