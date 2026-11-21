@@ -175,7 +175,9 @@ public partial class MainWindow : Window
         }
 
         if (!selectedPath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+        {
             selectedPath += ".exe";
+        }
 
         outputExePath = selectedPath;
         OutputExeTextBox.Text = outputExePath;
